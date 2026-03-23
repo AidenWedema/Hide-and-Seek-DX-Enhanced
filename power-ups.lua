@@ -3,19 +3,23 @@ TEX_BLOOPER = get_texture_info("powerup_blooper")
 TEX_BULLET_BILL = get_texture_info("powerup_bullet_bill")
 TEX_FREEZIE = get_texture_info("powerup_freezie")
 TEX_LAUNCH_STAR = get_texture_info("powerup_launch_star")
+TEX_MEGA_MUSHROOM = get_texture_info("powerup_mega_mushroom")
+TEX_MINI_MUSHROOM = get_texture_info("powerup_mini_mushroom")
 
 local ALL_TEAM_POWER_UPS = {
     -- "blooper",
     -- "bullet_bill",
-    "launch_star",
+    -- "launch_star",
 }
 
 local HIDER_ONLY_POWER_UPS = {
     -- "boo",
+    "mini_mushroom",
 }
 
 local SEEKER_ONLY_POWER_UPS = {
     -- "freezie",
+    "mega_mushroom",
 }
 
 local rouletteActive = false
@@ -29,6 +33,18 @@ local blooperInkTimer = 0
 
 local BOO_DURATION = 10 * 30
 local booVisualApplied = {}
+
+local MEGA_MUSHROOM_DURATION = 1000 * 30
+local MEGA_MUSHROOM_SCALE = 3.0
+local MEGA_MUSHROOM_SPEED_CAP = 70
+local MEGA_MUSHROOM_JUMP_VEL_CAP = 95
+local MEGA_MUSHROOM_GROW_CHECK_WINDOW = 45
+local megaMushroomGrowCheck = {}
+local megaMushroomLastVelY = {}
+
+local MINI_MUSHROOM_SCALE = 0.5
+local MINI_MUSHROOM_TERMINAL_VELOCITY = -20
+local miniMushroomLastHealth = {}
 
 local LAUNCH_STAR_VELOCITY = 120
 local launchStarNoFallDamage = false
@@ -122,6 +138,11 @@ local function on_power_up_update()
         stop_power_up_roulette(true)
         blooperInkTimer = 0
         gPlayerSyncTable[0].booTimer = 0
+        gPlayerSyncTable[0].megaMushTimer = 0
+        gPlayerSyncTable[0].miniMushroomActive = false
+        megaMushroomGrowCheck[0] = nil
+        megaMushroomLastVelY[0] = nil
+        miniMushroomLastHealth[0] = nil
         launchStarNoFallDamage = false
         return
     end
@@ -134,6 +155,10 @@ local function on_power_up_update()
 
     if gPlayerSyncTable[0].booTimer ~= nil and gPlayerSyncTable[0].booTimer > 0 then
         gPlayerSyncTable[0].booTimer = gPlayerSyncTable[0].booTimer - 1
+    end
+
+    if gPlayerSyncTable[0].megaMushTimer ~= nil and gPlayerSyncTable[0].megaMushTimer > 0 then
+        gPlayerSyncTable[0].megaMushTimer = gPlayerSyncTable[0].megaMushTimer - 1
     end
 
     if m and launchStarNoFallDamage then
@@ -186,6 +211,10 @@ function get_power_up_texture(powerUp)
         return TEX_BOO
     elseif powerUp == "launch_star" then
         return TEX_LAUNCH_STAR
+    elseif powerUp == "mega_mushroom" then
+        return TEX_MEGA_MUSHROOM
+    elseif powerUp == "mini_mushroom" then
+        return TEX_MINI_MUSHROOM
     else
         return nil
     end
@@ -228,6 +257,10 @@ function activate_power_up(powerUp)
         activate_boo()
     elseif powerUp == "launch_star" then
         activate_launch_star()
+    elseif powerUp == "mega_mushroom" then
+        activate_mega_mushroom()
+    elseif powerUp == "mini_mushroom" then
+        activate_mini_mushroom()
     end
 end
 
@@ -306,12 +339,241 @@ function activate_launch_star()
     launchStarNoFallDamage = true
 end
 
+-- Seeker only power-ups
+
+-- Mega Mushroom
+-- Makes the user 3x as big for 10 seconds with scaled speed and jump height.
+-- Includes a check to put it back in the item box if the player gets stuck while growing.
+
+local function set_mega_mushroom_visual_state(m, active)
+    if not m or not m.marioBodyState then
+        return
+    end
+
+    if active then
+        m.marioObj.header.gfx.scale.x = MEGA_MUSHROOM_SCALE
+        m.marioObj.header.gfx.scale.y = MEGA_MUSHROOM_SCALE
+        m.marioObj.header.gfx.scale.z = MEGA_MUSHROOM_SCALE
+    else
+        m.marioObj.header.gfx.scale.x = 1.0
+        m.marioObj.header.gfx.scale.y = 1.0
+        m.marioObj.header.gfx.scale.z = 1.0
+    end
+end
+
+local function set_mega_mushroom_gameplay_state(m, active)
+    if not m then
+        return
+    end
+
+    if active then
+        m.flags = m.flags | MARIO_METAL_CAP
+    else
+        if (m.flags & MARIO_METAL_CAP) ~= 0 then
+            m.flags = m.flags & ~MARIO_METAL_CAP
+            stop_cap_music()
+        end
+    end
+end
+
+local function cancel_mega_mushroom(m, returnToItemBox)
+    local playerIndex = m.playerIndex
+    gPlayerSyncTable[playerIndex].megaMushTimer = 0
+    if playerIndex == 0 then
+        set_mega_mushroom_gameplay_state(m, false)
+    end
+    set_mega_mushroom_visual_state(m, false)
+    megaMushroomGrowCheck[playerIndex] = nil
+
+    if returnToItemBox and playerIndex == 0 then
+        gPlayerSyncTable[0].powerUp = "mega_mushroom"
+    end
+end
+
+local function mega_mushroom_mario_update(m)
+    if not m then
+        return
+    end
+
+    local playerIndex = m.playerIndex
+    local playerSync = gPlayerSyncTable[playerIndex]
+    local isMegaMushActive = playerSync ~= nil and playerSync.megaMushTimer ~= nil and playerSync.megaMushTimer > 0
+    local lastVelY = megaMushroomLastVelY[playerIndex]
+    if lastVelY == nil then
+        lastVelY = m.vel.y
+    end
+
+    if isMegaMushActive then
+        set_mega_mushroom_visual_state(m, isMegaMushActive)
+    end
+
+    if playerIndex == 0 then
+        set_mega_mushroom_gameplay_state(m, isMegaMushActive)
+    end
+
+    if isMegaMushActive then
+        -- Scale movement physics for local player while mega is active.
+        if playerIndex == 0 then
+            if m.controller ~= nil and m.controller.stickMag ~= nil and m.controller.stickMag > 6 then
+                local speedDirection = m.forwardVel < 0 and -1 or 1
+                local boostedForwardVel = math.abs(m.forwardVel) + 1.5
+                if boostedForwardVel > MEGA_MUSHROOM_SPEED_CAP then
+                    boostedForwardVel = MEGA_MUSHROOM_SPEED_CAP
+                end
+                m.forwardVel = boostedForwardVel * speedDirection
+            end
+
+            if m.vel.y > 0 and lastVelY <= 0 then
+                local boostedJumpVel = m.vel.y * 1.35
+                if boostedJumpVel > MEGA_MUSHROOM_JUMP_VEL_CAP then
+                    boostedJumpVel = MEGA_MUSHROOM_JUMP_VEL_CAP
+                end
+                m.vel.y = boostedJumpVel
+            end
+        end
+
+        -- Check for "stuck while growing" only during the initial grow window
+        -- and only when player is trying to move.
+        local growCheck = megaMushroomGrowCheck[playerIndex]
+        if growCheck ~= nil then
+            growCheck.framesLeft = growCheck.framesLeft - 1
+            growCheck.sampleTimer = growCheck.sampleTimer - 1
+
+            if growCheck.sampleTimer <= 0 then
+                local tryingToMove = m.controller ~= nil and m.controller.stickMag ~= nil and m.controller.stickMag > 20
+                if tryingToMove then
+                    local distMoved = math.sqrt(
+                        (m.pos.x - growCheck.x) ^ 2 +
+                        (m.pos.z - growCheck.z) ^ 2
+                    )
+
+                    if distMoved < 2.0 then
+                        cancel_mega_mushroom(m, true)
+                        return
+                    end
+                end
+
+                growCheck.x = m.pos.x
+                growCheck.z = m.pos.z
+                growCheck.sampleTimer = 10
+            end
+
+            if growCheck.framesLeft <= 0 then
+                megaMushroomGrowCheck[playerIndex] = nil
+            end
+        end
+    else
+        megaMushroomGrowCheck[playerIndex] = nil
+        megaMushroomLastVelY[playerIndex] = nil
+        if playerIndex == 0 then
+            set_mega_mushroom_gameplay_state(m, false)
+        end
+        set_mega_mushroom_visual_state(m, false)
+        return
+    end
+
+    megaMushroomLastVelY[playerIndex] = m.vel.y
+end
+
+function activate_mega_mushroom()
+    if gGlobalSyncTable.gameState ~= 3 then
+        return
+    end
+
+    gPlayerSyncTable[0].megaMushTimer = MEGA_MUSHROOM_DURATION
+    megaMushroomGrowCheck[0] = {
+        x = gMarioStates[0].pos.x,
+        z = gMarioStates[0].pos.z,
+        sampleTimer = 10,
+        framesLeft = MEGA_MUSHROOM_GROW_CHECK_WINDOW,
+    }
+    set_mega_mushroom_gameplay_state(gMarioStates[0], true)
+    set_mega_mushroom_visual_state(gMarioStates[0], true)
+end
+
 -- Hider only power-ups
 
 -- freezie
 -- Freezes the nearest seeker for 2 seconds.
 
 function activate_freezie()
+end
+
+-- Hider only power-ups
+
+-- Mini Mushroom
+-- Makes the user 0.5x normal size permanently.
+-- Taking damage while mini means instant death.
+-- Fall slower and never get fall damage.
+
+local function set_mini_mushroom_visual_state(m, active)
+    if not m or not m.marioBodyState then
+        return
+    end
+
+    if active then
+        m.marioObj.header.gfx.scale.x = MINI_MUSHROOM_SCALE
+        m.marioObj.header.gfx.scale.y = MINI_MUSHROOM_SCALE
+        m.marioObj.header.gfx.scale.z = MINI_MUSHROOM_SCALE
+    else
+        m.marioObj.header.gfx.scale.x = 1.0
+        m.marioObj.header.gfx.scale.y = 1.0
+        m.marioObj.header.gfx.scale.z = 1.0
+    end
+end
+
+local function mini_mushroom_mario_update(m)
+    if not m then
+        return
+    end
+
+    local playerIndex = m.playerIndex
+    local playerSync = gPlayerSyncTable[playerIndex]
+    local isMiniActive = playerSync ~= nil and playerSync.miniMushroomActive
+
+    -- Mini effect should not persist through death.
+    if isMiniActive and m.health <= 0xFF then
+        playerSync.miniMushroomActive = false
+        isMiniActive = false
+    end
+
+    if isMiniActive then
+        set_mini_mushroom_visual_state(m, isMiniActive)
+    end
+
+    if isMiniActive then
+        -- Reduce fall speed
+        if m.vel.y < MINI_MUSHROOM_TERMINAL_VELOCITY then
+            m.vel.y = MINI_MUSHROOM_TERMINAL_VELOCITY
+        end
+
+        -- Prevent fall damage
+        m.peakHeight = m.pos.y
+
+        -- Instant death when taking any damage while mini.
+        local lastHealth = miniMushroomLastHealth[playerIndex]
+        if lastHealth ~= nil and m.health < lastHealth then
+            m.health = 0xFF
+            playerSync.miniMushroomActive = false
+            set_mini_mushroom_visual_state(m, false)
+            miniMushroomLastHealth[playerIndex] = nil
+            return
+        end
+
+        miniMushroomLastHealth[playerIndex] = m.health
+    else
+        miniMushroomLastHealth[playerIndex] = nil
+    end
+end
+
+function activate_mini_mushroom()
+    if gGlobalSyncTable.gameState ~= 3 then
+        return
+    end
+
+    gPlayerSyncTable[0].miniMushroomActive = true
+    miniMushroomLastHealth[0] = gMarioStates[0].health
+    set_mini_mushroom_visual_state(gMarioStates[0], true)
 end
 
 
@@ -358,3 +620,5 @@ hook_event(HOOK_UPDATE, on_power_up_update)
 hook_event(HOOK_ON_PACKET_RECEIVE, on_power_up_packet)
 hook_event(HOOK_ON_HUD_RENDER, render_blooper_overlay)
 hook_event(HOOK_MARIO_UPDATE, boo_mario_update)
+hook_event(HOOK_MARIO_UPDATE, mega_mushroom_mario_update)
+hook_event(HOOK_MARIO_UPDATE, mini_mushroom_mario_update)

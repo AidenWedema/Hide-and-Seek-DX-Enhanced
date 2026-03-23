@@ -71,9 +71,13 @@ local function mario_update(m)
       on_cap_collected()
   end
   if (m.flags & MARIO_METAL_CAP) ~= 0 then
-      m.flags = m.flags & ~MARIO_METAL_CAP
-      stop_cap_music()
-      on_cap_collected()
+      local playerSync = gPlayerSyncTable[m.playerIndex]
+      local megaActive = playerSync ~= nil and playerSync.megaMushTimer ~= nil and playerSync.megaMushTimer > 0
+      if not megaActive then
+        m.flags = m.flags & ~MARIO_METAL_CAP
+        stop_cap_music()
+        on_cap_collected()
+      end
   end
   if (m.flags & MARIO_WING_CAP) ~= 0 then
       m.flags = m.flags & ~MARIO_WING_CAP
