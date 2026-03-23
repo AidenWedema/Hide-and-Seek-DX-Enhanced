@@ -1,19 +1,19 @@
 TEX_BOO = get_texture_info("powerup_boo")
 TEX_BLOOPER = get_texture_info("powerup_blooper")
 TEX_BULLET_BILL = get_texture_info("powerup_bullet_bill")
-TEX_FREEZY = get_texture_info("powerup_freezy")
+TEX_FREEZIE = get_texture_info("powerup_freezie")
 
 local ALL_TEAM_POWER_UPS = {
-    "blooper",
-    "bullet_bill",
+    -- "blooper",
+    -- "bullet_bill",
 }
 
 local HIDER_ONLY_POWER_UPS = {
-    "freezy",
+    "boo",
 }
 
 local SEEKER_ONLY_POWER_UPS = {
-    "boo",
+    -- "freezie",
 }
 
 local rouletteActive = false
@@ -107,6 +107,8 @@ local function update_power_up_roulette()
 end
 
 local function on_power_up_update()
+    local m = gMarioStates[0]
+
     if gGlobalSyncTable.gameState ~= 3 then
         stop_power_up_roulette(true)
         blooperInkTimer = 0
@@ -119,7 +121,6 @@ local function on_power_up_update()
         blooperInkTimer = blooperInkTimer - 1
     end
 
-    local m = gMarioStates[0]
     if not m or not m.controller then
         return
     end
@@ -156,8 +157,8 @@ function get_power_up_texture(powerUp)
         return TEX_BLOOPER
     elseif powerUp == "bullet_bill" then
         return TEX_BULLET_BILL
-    elseif powerUp == "freezy" then
-        return TEX_FREEZY
+    elseif powerUp == "freezie" then
+        return TEX_FREEZIE
     elseif powerUp == "boo" then
         return TEX_BOO
     else
@@ -182,26 +183,26 @@ function render_item_box()
     
     if powerUp ~= nil then
         local texture = get_power_up_texture(powerUp)
+        djui_hud_print_text("Power-Up: " .. powerUp, x, y, 1)
         if texture ~= nil then
             djui_hud_render_texture(texture, x, y, 0.5, 0.5)
         end
     end
 end
 
+-- All team power-ups
+
 function activate_power_up(powerUp)
     if powerUp == "blooper" then
         activate_blooper()
     elseif powerUp == "bullet_bill" then
         activate_bullet_bill()
-    elseif powerUp == "freezy" then
-        activate_freezy()
+    elseif powerUp == "freezie" then
+        activate_freezie()
     elseif powerUp == "boo" then
         activate_boo()
     end
 end
-
-
--- All team power-ups
 
 -- Blooper
 -- Puts ink on the screen of all players in the opposite team which goes away after 6 seconds.
@@ -267,10 +268,10 @@ end
 
 -- Hider only power-ups
 
--- Freezy
+-- freezie
 -- Freezes the nearest seeker for 2 seconds.
 
-function activate_freezy()
+function activate_freezie()
 end
 
 
