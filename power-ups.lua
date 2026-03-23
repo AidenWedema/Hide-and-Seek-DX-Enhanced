@@ -9,11 +9,11 @@ local ALL_TEAM_POWER_UPS = {
 }
 
 local HIDER_ONLY_POWER_UPS = {
-    "boo",
+    -- "boo",
 }
 
 local SEEKER_ONLY_POWER_UPS = {
-    -- "freezie",
+    "freezie",
 }
 
 local rouletteActive = false
@@ -22,7 +22,10 @@ local rouletteFrames = 0
 local rouletteDuration = 0
 local rouletteSwapCooldown = 0
 local blooperInkTimer = 0
-local BLOOPER_INK_DURATION = 30 * 6
+local BLOOPER_INK_DURATION = 6 * 30
+
+local BOO_DURATION = 10 * 30
+local booVisualApplied = {}
 
 local function get_available_power_ups_for_local_player()
     local pool = {}
@@ -112,6 +115,7 @@ local function on_power_up_update()
     if gGlobalSyncTable.gameState ~= 3 then
         stop_power_up_roulette(true)
         blooperInkTimer = 0
+        gPlayerSyncTable[0].booTimer = 0
         return
     end
 
@@ -119,6 +123,10 @@ local function on_power_up_update()
 
     if blooperInkTimer > 0 then
         blooperInkTimer = blooperInkTimer - 1
+    end
+
+    if gPlayerSyncTable[0].booTimer ~= nil and gPlayerSyncTable[0].booTimer > 0 then
+        gPlayerSyncTable[0].booTimer = gPlayerSyncTable[0].booTimer - 1
     end
 
     if not m or not m.controller then
@@ -280,10 +288,41 @@ end
 -- Boo
 -- Makes the user transparent for 20 seconds.
 
+local function boo_is_active_for_player(playerIndex)
+    local playerSync = gPlayerSyncTable[playerIndex]
+    return playerSync ~= nil and playerSync.booTimer ~= nil and playerSync.booTimer > 0
+end
+
+local function set_boo_visual_state(m, active)
+    if not m or not m.marioBodyState then
+        return
+    end
+
+    local playerIndex = m.playerIndex
+    if active then
+        m.marioBodyState.modelState = m.marioBodyState.modelState | MODEL_STATE_NOISE_ALPHA
+        booVisualApplied[playerIndex] = true
+    elseif booVisualApplied[playerIndex] then
+        m.marioBodyState.modelState = m.marioBodyState.modelState & ~MODEL_STATE_NOISE_ALPHA
+        booVisualApplied[playerIndex] = false
+    end
+end
+
+local function boo_mario_update(m)
+    set_boo_visual_state(m, boo_is_active_for_player(m.playerIndex))
+end
+
 function activate_boo()
+    if gGlobalSyncTable.gameState ~= 3 then
+        return
+    end
+
+    gPlayerSyncTable[0].booTimer = BOO_DURATION
+    set_boo_visual_state(gMarioStates[0], true)
 end
 
 
 hook_event(HOOK_UPDATE, on_power_up_update)
 hook_event(HOOK_ON_PACKET_RECEIVE, on_power_up_packet)
 hook_event(HOOK_ON_HUD_RENDER, render_blooper_overlay)
+hook_event(HOOK_MARIO_UPDATE, boo_mario_update)
