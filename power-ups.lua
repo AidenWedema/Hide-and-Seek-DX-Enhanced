@@ -2,10 +2,12 @@ TEX_BOO = get_texture_info("powerup_boo")
 TEX_BLOOPER = get_texture_info("powerup_blooper")
 TEX_BULLET_BILL = get_texture_info("powerup_bullet_bill")
 TEX_FREEZIE = get_texture_info("powerup_freezie")
+TEX_LAUNCH_STAR = get_texture_info("powerup_launch_star")
 
 local ALL_TEAM_POWER_UPS = {
     -- "blooper",
     -- "bullet_bill",
+    "launch_star",
 }
 
 local HIDER_ONLY_POWER_UPS = {
@@ -13,7 +15,7 @@ local HIDER_ONLY_POWER_UPS = {
 }
 
 local SEEKER_ONLY_POWER_UPS = {
-    "freezie",
+    -- "freezie",
 }
 
 local rouletteActive = false
@@ -21,11 +23,15 @@ local rouletteCurrentPowerUp = nil
 local rouletteFrames = 0
 local rouletteDuration = 0
 local rouletteSwapCooldown = 0
-local blooperInkTimer = 0
+
 local BLOOPER_INK_DURATION = 6 * 30
+local blooperInkTimer = 0
 
 local BOO_DURATION = 10 * 30
 local booVisualApplied = {}
+
+local LAUNCH_STAR_VELOCITY = 120
+local launchStarNoFallDamage = false
 
 local function get_available_power_ups_for_local_player()
     local pool = {}
@@ -116,6 +122,7 @@ local function on_power_up_update()
         stop_power_up_roulette(true)
         blooperInkTimer = 0
         gPlayerSyncTable[0].booTimer = 0
+        launchStarNoFallDamage = false
         return
     end
 
@@ -127,6 +134,14 @@ local function on_power_up_update()
 
     if gPlayerSyncTable[0].booTimer ~= nil and gPlayerSyncTable[0].booTimer > 0 then
         gPlayerSyncTable[0].booTimer = gPlayerSyncTable[0].booTimer - 1
+    end
+
+    if m and launchStarNoFallDamage then
+        if m.pos.y > m.floorHeight + 10 or m.vel.y > 0 then
+            m.peakHeight = m.pos.y
+        else
+            launchStarNoFallDamage = false
+        end
     end
 
     if not m or not m.controller then
@@ -169,6 +184,8 @@ function get_power_up_texture(powerUp)
         return TEX_FREEZIE
     elseif powerUp == "boo" then
         return TEX_BOO
+    elseif powerUp == "launch_star" then
+        return TEX_LAUNCH_STAR
     else
         return nil
     end
@@ -209,6 +226,8 @@ function activate_power_up(powerUp)
         activate_freezie()
     elseif powerUp == "boo" then
         activate_boo()
+    elseif powerUp == "launch_star" then
+        activate_launch_star()
     end
 end
 
@@ -273,6 +292,19 @@ end
 function activate_bullet_bill()
 end
 
+
+-- Launch Star
+-- Launches the user high into the air.
+function activate_launch_star()
+    local m = gMarioStates[0]
+    if not m then
+        return
+    end
+
+    set_mario_action(m, ACT_TRIPLE_JUMP, 0)
+    m.vel.y = LAUNCH_STAR_VELOCITY
+    launchStarNoFallDamage = true
+end
 
 -- Hider only power-ups
 
