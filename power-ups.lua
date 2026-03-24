@@ -7,19 +7,19 @@ TEX_MEGA_MUSHROOM = get_texture_info("powerup_mega_mushroom")
 TEX_MINI_MUSHROOM = get_texture_info("powerup_mini_mushroom")
 
 local ALL_TEAM_POWER_UPS = {
-    -- "blooper",
-    -- "bullet_bill",
-    -- "launch_star",
+    "blooper",
+    "bullet_bill",
+    "launch_star",
 }
 
 local HIDER_ONLY_POWER_UPS = {
-    -- "boo",
+    "boo",
     "mini_mushroom",
 }
 
 local SEEKER_ONLY_POWER_UPS = {
     "freezie",
-    -- "mega_mushroom",
+    "mega_mushroom",
 }
 
 local rouletteActive = false
@@ -37,6 +37,13 @@ local booVisualApplied = {}
 local FREEZIE_DURATION = 2 * 30
 local FREEZIE_MAX_RANGE = 5000
 
+local BULLET_BILL_HOMING_DURATION = 30 * 30
+local BULLET_BILL_HOMING_RANGE = 8000
+local BULLET_BILL_SPEED = 40
+local BULLET_BILL_TURN_SPEED = 1024
+local BULLET_BILL_DAMAGE = 0x100
+local BULLET_BILL_HIT_RADIUS = 60
+
 local MEGA_MUSHROOM_DURATION = 1000 * 30
 local MEGA_MUSHROOM_SCALE = 3.0
 local MEGA_MUSHROOM_SPEED_CAP = 70
@@ -51,6 +58,70 @@ local miniMushroomLastHealth = {}
 
 local LAUNCH_STAR_VELOCITY = 120
 local launchStarNoFallDamage = false
+
+
+-- Utility functions
+
+local function normalize_angle_s16(angle)
+    angle = angle % 0x10000
+    if angle >= 0x8000 then
+        angle = angle - 0x10000
+    end
+    return angle
+end
+
+local function approach_angle_s16(current, target, maxStep)
+    local delta = normalize_angle_s16(target - current)
+    if delta > maxStep then
+        delta = maxStep
+    elseif delta < -maxStep then
+        delta = -maxStep
+    end
+    return normalize_angle_s16(current + delta)
+end
+
+local function get_nearest_opposing_player()
+    if gGlobalSyncTable.gameState ~= 3 then
+        return nil
+    end
+
+    local localPlayer = gNetworkPlayers[0]
+    local localMario = gMarioStates[0]
+    local localSync = gPlayerSyncTable[0]
+    if not localPlayer or not localMario or not localSync then
+        return nil
+    end
+
+    local localIsSeeker = localSync.seeker and true or false
+    local nearestPlayer = nil
+    local nearestDistSq = nil
+
+    for i = 0, MAX_PLAYERS - 1 do
+        if
+            i ~= 0 and
+            gNetworkPlayers[i].connected and
+            gNetworkPlayers[i].currAreaSyncValid and
+            gPlayerSyncTable[i] ~= nil and
+            gPlayerSyncTable[i].seeker ~= localIsSeeker and
+            gNetworkPlayers[i].currLevelNum == localPlayer.currLevelNum and
+            gNetworkPlayers[i].currAreaIndex == localPlayer.currAreaIndex and
+            gMarioStates[i] and
+            gMarioStates[i].marioObj
+        then
+            local dx = gMarioStates[i].pos.x - localMario.pos.x
+            local dy = gMarioStates[i].pos.y - localMario.pos.y
+            local dz = gMarioStates[i].pos.z - localMario.pos.z
+            local distSq = dx * dx + dy * dy + dz * dz
+
+            if nearestDistSq == nil or distSq < nearestDistSq then
+                nearestDistSq = distSq
+                nearestPlayer = gMarioStates[i]
+            end
+        end
+    end
+
+    return nearestPlayer
+end
 
 local function get_available_power_ups_for_local_player()
     local pool = {}
@@ -325,7 +396,146 @@ end
 -- The bullet bill won't target anyone who has the "Boo" power-up active or if no player is close by.
 -- the homing effect lasts for 10 seconds, after which the bullet bill will continue in a straight line.
 
+local function explode_bullet_bill(o)
+    spawn_non_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, o.oPosX, o.oPosY, o.oPosZ, function () end)
+    spawn_mist_particles()
+    obj_mark_for_deletion(o)
+end
+
+local function bullet_bill_try_hit_local_player(o)
+    local m = gMarioStates[0]
+    if not m then
+        return false
+    end
+
+    if not gNetworkPlayers[0].currAreaSyncValid then
+        return false
+    end
+
+    if boo_is_active_for_player(0) then
+        return false
+    end
+
+    local dx = m.pos.x - o.oPosX
+    local dy = (m.pos.y + 80) - o.oPosY
+    local dz = m.pos.z - o.oPosZ
+    local distance = math.sqrt(dx^2 + dy^2 + dz^2)
+    if distance > BULLET_BILL_HIT_RADIUS then
+        return false
+    end
+
+    m.health = math.max(0xFF, m.health - BULLET_BILL_DAMAGE)
+    return true
+end
+
+function bhv_bullet_bill_powerup_init(o)
+    o.oGravity = 0
+    o.oFriction = 0
+    o.oBuoyancy = 0
+    o.oDragStrength = 0
+    o.oFlags = OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE
+    o.oTimer = 0
+    o.oAction = 0           -- 0 = searching for target, 1 = homing in, 2 = flying straight
+    o.oSubAction = 0        -- target player index when homing
+
+    -- set to .25 of normal scale
+    o.header.gfx.scale.x = 0.25
+    o.header.gfx.scale.y = 0.25
+    o.header.gfx.scale.z = 0.25
+
+    -- point straight upward
+    o.oMoveAnglePitch = degrees_to_sm64(-90)
+    o.oMoveAngleYaw = 0
+    o.oMoveAngleRoll = degrees_to_sm64(-90)
+
+    o.oFaceAnglePitch = o.oMoveAnglePitch
+    o.oFaceAngleYaw = o.oMoveAngleYaw
+    o.oFaceAngleRoll = o.oMoveAngleRoll
+
+    -- Set the hitbox
+    o.hitboxRadius = 50
+    o.hitboxHeight = 50
+
+    obj_set_model_extended(o, E_MODEL_BULLET_BILL)
+
+    network_init_object(o, true, nil)
+end
+
+function bhv_bullet_bill_powerup_loop(o)
+    if bullet_bill_try_hit_local_player(o) then
+        explode_bullet_bill(o)
+        return
+    end
+
+    if o.oTimer >= BULLET_BILL_HOMING_DURATION then
+        o.oAction = 2
+    end
+
+    if o.oAction == 0 then
+        local target = get_nearest_opposing_player()
+        if target and not boo_is_active_for_player(target.playerIndex) then
+            local dx = target.pos.x - o.oPosX
+            local dy = target.pos.y - o.oPosY
+            local dz = target.pos.z - o.oPosZ
+            local distance = math.sqrt(dx^2 + dy^2 + dz^2)
+            if distance < BULLET_BILL_HOMING_RANGE then
+                o.oAction = 1
+                o.oSubAction = target.playerIndex
+            end
+        end
+    elseif o.oAction == 1 then
+        local targetPlayerIndex = o.oSubAction
+        local target = gMarioStates[targetPlayerIndex]
+        if target then
+            local angle = obj_angle_to_object(o, target.marioObj)
+            local pitch = obj_pitch_to_object(o, target.marioObj)
+            o.oMoveAngleYaw = approach_angle_s16(o.oMoveAngleYaw, angle, BULLET_BILL_TURN_SPEED)
+            o.oMoveAnglePitch = approach_angle_s16(o.oMoveAnglePitch, pitch, BULLET_BILL_TURN_SPEED)
+
+            -- if the target gets out of range or gets the boo power-up, stop homing
+            local dx = target.pos.x - o.oPosX
+            local dy = target.pos.y - o.oPosY
+            local dz = target.pos.z - o.oPosZ
+            local distance = math.sqrt(dx^2 + dy^2 + dz^2)
+            if distance > BULLET_BILL_HOMING_RANGE or boo_is_active_for_player(targetPlayerIndex) then
+                o.oAction = 2
+            end
+        else
+            o.oAction = 2
+        end
+    end
+
+    o.oFaceAnglePitch = o.oMoveAnglePitch
+    o.oFaceAngleYaw = o.oMoveAngleYaw
+    o.oFaceAngleRoll = o.oMoveAngleRoll
+
+    -- turn facing angles into xyz velocity
+    local velX = BULLET_BILL_SPEED * coss(o.oMoveAnglePitch) * sins(o.oMoveAngleYaw)
+    local velY = -BULLET_BILL_SPEED * sins(o.oMoveAnglePitch)
+    local velZ = BULLET_BILL_SPEED * coss(o.oMoveAnglePitch) * coss(o.oMoveAngleYaw)
+    o.oVelX = velX
+    o.oVelY = velY
+    o.oVelZ = velZ
+
+    cur_obj_move_using_vel()
+
+    if bullet_bill_try_hit_local_player(o) then
+        explode_bullet_bill(o)
+        return
+    end
+end
+
+
+id_bhvBulletBillPowerup = hook_behavior(nil, OBJ_LIST_GENACTOR, true, bhv_bullet_bill_powerup_init, bhv_bullet_bill_powerup_loop)
+
 function activate_bullet_bill()
+    local m = gMarioStates[0]
+    if not m then
+        return
+    end
+
+    local spawnY = m.pos.y + 200 * m.marioObj.header.gfx.scale.y
+    spawn_sync_object(id_bhvBulletBillPowerup, E_MODEL_BULLET_BILL, m.pos.x, spawnY, m.pos.z, nil)
 end
 
 -- Launch Star
@@ -618,7 +828,7 @@ end
 -- Boo
 -- Makes the user transparent for 20 seconds.
 
-local function boo_is_active_for_player(playerIndex)
+function boo_is_active_for_player(playerIndex)
     local playerSync = gPlayerSyncTable[playerIndex]
     return playerSync ~= nil and playerSync.booTimer ~= nil and playerSync.booTimer > 0
 end
