@@ -20,15 +20,15 @@ Power-ups replace the wing, metal and vanish cap. The last 2 were already disabl
 *Please note that some power ups may behave weirdly.*
 
 #### Everyone:
-- [blooper](#blooper)
-- [bullet bill](#bullet-bill)
-- [launch star](#launch-star)
+- [Blooper](#blooper)
+- [Bullet bill](#bullet-bill)
+- [Launch star](#launch-star)
 #### Hiders only:
-- [boo](#boo)
-- [mini mushroom](#mini-mushroom)
+- [Boo](#boo)
+- [Mini mushroom](#mini-mushroom)
 #### Seekers only:
-- [mega mushroom](#mega-mushroom)
-- [freezie](#freezie)
+- [Mega mushroom](#mega-mushroom)
+- [Freezie](#freezie)
 
 ### Blooper
 The blooper functions like it does in Mario Kart; It obscures the vision of the other team for a few seconds.
@@ -39,7 +39,7 @@ If the bullet bill hits a player, it exploads, causing them to lose 3 health.\
 If the bullet bill does not hit anyone after 20 seconds, it just keeps flying in it's current direction.
 
 ### Launch star
-The launch star gives a powerfull boost upwards and prevents you from taking fall damage on the way down.
+The launch star gives a powerfull boost upwards and prevents you from taking fall damage on the way down.\
 Your horizontal speed is not changed.
 
 ### Boo
@@ -49,17 +49,17 @@ Only hiders can use this.
 ### Mini mushroom
 The mini mushroom makes you shrink to half your size.\
 Due to your smaller size, you are harder to spot. You are also floatier than normal, which slows your fall and prevents taking fall damage.\
-But this power comes at the cost of dying in just a single hit, so be carefull.
+But this power comes at the cost of dying in just a single hit, so be carefull.\
 Only hiders can use this.
 
 ### Mega mushroom
 The mega mushroom makes you grow huge for 12 seconds.\
-When huge, nothing can hurt you, you walk faster and jump heigher.
+When huge, nothing can hurt you, you walk faster and jump heigher.\
 Only seekers can use this.
 
 ### Freezie
-The freezie freezes the nearest hider for 2 seconds. Frozen players can't move and lose all speed.
-The freezie has a limited range, so don't use it when there are no hiders nearby.
+The freezie freezes the nearest hider for 2 seconds. Frozen players can't move and lose all speed.\
+The freezie has a limited range, so don't use it when there are no hiders nearby.\
 Only seekers can use this.
 
 # Credits
