@@ -16,13 +16,53 @@ local timerMessages = {
 
 settingsMenuOpen = false
 local settingsMenuRow = 1
-local settingsMenuRows = 10  -- Mode, All Levels, Player List, Hide Timer, Round Timer, Compass Timer, Compass Height, Distance Indicator, Players, Active Round Timer
-local settingsMenuMode = "main"  -- "main" or "players"
+local settingsMenuRows = 11  -- Mode, All Levels, Player List, Hide Timer, Round Timer, Compass Timer, Compass Height, Distance Indicator, Players, Power-Ups, Active Round Timer
+local settingsMenuMode = "main"  -- "main", "players", or "powerups"
 local connectedPlayers = {}
 local selectedPlayerIdx = 1
 local compassDirs = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
 local compassArrowTex = nil
 local triedCompassArrowTex = false
+local powerUpMenuEntries = {
+    {header = "All"},
+    {key = "blooper", label = "Blooper"},
+    {key = "bullet_bill", label = "Bullet Bill"},
+    {key = "launch_star", label = "Launch Star"},
+    {header = "Hiders Only"},
+    {key = "boo", label = "Boo"},
+    {key = "mini_mushroom", label = "Mini Mushroom"},
+    {header = "Seekers Only"},
+    {key = "freezie", label = "Freezie"},
+    {key = "mega_mushroom", label = "Mega Mushroom"},
+}
+local powerUpMenuRows = #powerUpMenuEntries
+
+local function ensure_power_up_toggle_table()
+    if gGlobalSyncTable.powerUpsEnabled == nil then
+        gGlobalSyncTable.powerUpsEnabled = {}
+    end
+
+    local defaults = {
+        blooper = true,
+        bullet_bill = true,
+        launch_star = true,
+        boo = true,
+        mini_mushroom = true,
+        freezie = true,
+        mega_mushroom = true,
+    }
+
+    for key, value in pairs(defaults) do
+        if gGlobalSyncTable.powerUpsEnabled[key] == nil then
+            gGlobalSyncTable.powerUpsEnabled[key] = value
+        end
+    end
+end
+
+local function is_power_up_enabled(powerUp)
+    ensure_power_up_toggle_table()
+    return gGlobalSyncTable.powerUpsEnabled[powerUp] ~= false
+end
 
 local function toggle_mode_from_menu()
     if gGlobalSyncTable.gameState < 2 then
@@ -369,7 +409,10 @@ local function on_settings_menu_update()
         elseif settingsMenuRow == 9 and select then
             settingsMenuMode = "players"
             selectedPlayerIdx = 1
-        elseif settingsMenuRow == 10 and gGlobalSyncTable.gameState == 3 then
+        elseif settingsMenuRow == 10 and select then
+            settingsMenuMode = "powerups"
+            settingsMenuRow = 1
+        elseif settingsMenuRow == 11 and gGlobalSyncTable.gameState == 3 then
             if left then
                 gGlobalSyncTable.timer = gGlobalSyncTable.timer - 30
                 if gGlobalSyncTable.timer < 0 then
@@ -416,6 +459,34 @@ local function on_settings_menu_update()
                 end
                 gPlayerSyncTable[playerIdx].role = newRole
             end
+        end
+    elseif settingsMenuMode == "powerups" then
+        if (pressed & B_BUTTON) ~= 0 then
+            settingsMenuMode = "main"
+            settingsMenuRow = 10
+            return
+        end
+
+        if (pressed & U_JPAD) ~= 0 then
+            settingsMenuRow = settingsMenuRow - 1
+            if settingsMenuRow < 1 then
+                settingsMenuRow = powerUpMenuRows
+            end
+        elseif (pressed & D_JPAD) ~= 0 then
+            settingsMenuRow = settingsMenuRow + 1
+            if settingsMenuRow > powerUpMenuRows then
+                settingsMenuRow = 1
+            end
+        end
+
+        local left = (pressed & L_JPAD) ~= 0
+        local right = (pressed & R_JPAD) ~= 0
+        local select = (pressed & A_BUTTON) ~= 0
+        local entry = powerUpMenuEntries[settingsMenuRow]
+
+        if entry and entry.key and (left or right or select) then
+            ensure_power_up_toggle_table()
+            gGlobalSyncTable.powerUpsEnabled[entry.key] = not is_power_up_enabled(entry.key)
         end
     end
 end
@@ -627,6 +698,7 @@ local function on_hud_render()
             local compassHeightText = "Compass Height: " .. get_compass_height_text()
             local distanceIndicatorText = "Distance Indicator: " .. (gGlobalSyncTable.showDistanceIndicator and "ON" or "OFF")
             local playersText = "Manage Player Roles"
+            local powerUpsText = "Power-Ups"
             local activeRoundText = "Active Round: " .. get_active_round_timer_text()
 
             fancy_text((settingsMenuRow == 1 and "> " or "  ") .. modeText, "left", x + 20, rowY, 1.2, settingsMenuRow == 1 and 255 or 215, settingsMenuRow == 1 and 255 or 215, settingsMenuRow == 1 and 128 or 215, 255, settingsMenuRow == 1, true, true, false)
@@ -638,8 +710,9 @@ local function on_hud_render()
             fancy_text((settingsMenuRow == 7 and "> " or "  ") .. compassHeightText, "left", x + 20, rowY + line * 6, 1.2, settingsMenuRow == 7 and 255 or 215, settingsMenuRow == 7 and 255 or 215, settingsMenuRow == 7 and 128 or 215, 255, settingsMenuRow == 7, true, true, false)
             fancy_text((settingsMenuRow == 8 and "> " or "  ") .. distanceIndicatorText, "left", x + 20, rowY + line * 7, 1.2, settingsMenuRow == 8 and 255 or 215, settingsMenuRow == 8 and 255 or 215, settingsMenuRow == 8 and 128 or 215, 255, settingsMenuRow == 8, true, true, false)
             fancy_text((settingsMenuRow == 9 and "> " or "  ") .. playersText, "left", x + 20, rowY + line * 8, 1.2, settingsMenuRow == 9 and 255 or 215, settingsMenuRow == 9 and 255 or 215, settingsMenuRow == 9 and 128 or 215, 255, settingsMenuRow == 9, true, true, false)
+            fancy_text((settingsMenuRow == 10 and "> " or "  ") .. powerUpsText, "left", x + 20, rowY + line * 9, 1.2, settingsMenuRow == 10 and 255 or 215, settingsMenuRow == 10 and 255 or 215, settingsMenuRow == 10 and 128 or 215, 255, settingsMenuRow == 10, true, true, false)
             local activeRoundColor = gGlobalSyncTable.gameState == 3 and 255 or 150
-            fancy_text((settingsMenuRow == 10 and "> " or "  ") .. activeRoundText, "left", x + 20, rowY + line * 9, 1.2, settingsMenuRow == 10 and activeRoundColor or 150, settingsMenuRow == 10 and activeRoundColor or 150, settingsMenuRow == 10 and 128 or 100, 255, settingsMenuRow == 10 and gGlobalSyncTable.gameState == 3, true, true, false)
+            fancy_text((settingsMenuRow == 11 and "> " or "  ") .. activeRoundText, "left", x + 20, rowY + line * 10, 1.2, settingsMenuRow == 11 and activeRoundColor or 150, settingsMenuRow == 11 and activeRoundColor or 150, settingsMenuRow == 11 and 128 or 100, 255, settingsMenuRow == 11 and gGlobalSyncTable.gameState == 3, true, true, false)
 
         elseif settingsMenuMode == "players" then
             fancy_text("Manage Player Roles", "left", x + 16, y + 14, 1.5, 255, 255, 255, 255, false, false, false, false)
@@ -667,6 +740,33 @@ local function on_hud_render()
                     fancy_text(roleText, "left", x + 380, playerY, 1.2, roleR, roleG, roleB, 255, false, false, false, false)
                     playerY = playerY + 36
                 end
+            end
+        elseif settingsMenuMode == "powerups" then
+            fancy_text("Power-Up Toggles", "left", x + 16, y + 14, 1.5, 255, 255, 255, 255, false, false, false, false)
+            fancy_text("D-Pad: Navigate  A/Left/Right: Toggle  B: Back", "left", x + 16, y + 52, 1, 200, 200, 200, 255, false, false, false, false)
+
+            ensure_power_up_toggle_table()
+            local itemY = y + 96
+            local line = 34
+
+            for i = 1, powerUpMenuRows do
+                local entry = powerUpMenuEntries[i]
+                local selected = (settingsMenuRow == i)
+
+                if entry.header then
+                    fancy_text(entry.header, "left", x + 20, itemY, 1.1, 180, 180, 180, 255, false, false, false, false)
+                else
+                    local enabled = is_power_up_enabled(entry.key)
+                    local statusText = enabled and "ON" or "OFF"
+                    local statusR = enabled and 128 or 255
+                    local statusG = enabled and 255 or 128
+                    local statusB = enabled and 128 or 128
+
+                    fancy_text((selected and "> " or "  ") .. entry.label, "left", x + 20, itemY, 1.1, selected and 220 or 200, selected and 220 or 200, selected and 220 or 200, 255, selected, true, true, false)
+                    fancy_text(statusText, "left", x + 380, itemY, 1.1, statusR, statusG, statusB, 255, false, false, false, false)
+                end
+
+                itemY = itemY + line
             end
         end
     end

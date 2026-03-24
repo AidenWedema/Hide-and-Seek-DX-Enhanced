@@ -123,20 +123,53 @@ local function get_nearest_opposing_player()
     return nearestPlayer
 end
 
+local function ensure_power_up_toggle_table()
+    if gGlobalSyncTable.powerUpsEnabled == nil then
+        gGlobalSyncTable.powerUpsEnabled = {}
+    end
+
+    local defaults = {
+        blooper = true,
+        bullet_bill = true,
+        launch_star = true,
+        boo = true,
+        mini_mushroom = true,
+        freezie = true,
+        mega_mushroom = true,
+    }
+
+    for key, value in pairs(defaults) do
+        if gGlobalSyncTable.powerUpsEnabled[key] == nil then
+            gGlobalSyncTable.powerUpsEnabled[key] = value
+        end
+    end
+end
+
+local function is_power_up_enabled(powerUp)
+    ensure_power_up_toggle_table()
+    return gGlobalSyncTable.powerUpsEnabled[powerUp] ~= false
+end
+
 local function get_available_power_ups_for_local_player()
     local pool = {}
 
     for _, value in ipairs(ALL_TEAM_POWER_UPS) do
-        table.insert(pool, value)
+        if is_power_up_enabled(value) then
+            table.insert(pool, value)
+        end
     end
 
     if gPlayerSyncTable[0].seeker then
         for _, value in ipairs(SEEKER_ONLY_POWER_UPS) do
-            table.insert(pool, value)
+            if is_power_up_enabled(value) then
+                table.insert(pool, value)
+            end
         end
     else
         for _, value in ipairs(HIDER_ONLY_POWER_UPS) do
-            table.insert(pool, value)
+            if is_power_up_enabled(value) then
+                table.insert(pool, value)
+            end
         end
     end
 
@@ -162,11 +195,16 @@ local function get_random_power_up(previousPowerUp)
 end
 
 local function start_power_up_roulette()
+    local initialPowerUp = get_random_power_up(nil)
+    if initialPowerUp == nil then
+        return
+    end
+
     rouletteActive = true
     rouletteFrames = 0
     rouletteDuration = 180
     rouletteSwapCooldown = 0
-    rouletteCurrentPowerUp = get_random_power_up(nil)
+    rouletteCurrentPowerUp = initialPowerUp
 end
 
 local function stop_power_up_roulette(clearPowerUp)
@@ -200,7 +238,11 @@ local function update_power_up_roulette()
     end
 
     if rouletteFrames >= rouletteDuration then
-        gPlayerSyncTable[0].powerUp = rouletteCurrentPowerUp
+        if rouletteCurrentPowerUp ~= nil and is_power_up_enabled(rouletteCurrentPowerUp) then
+            gPlayerSyncTable[0].powerUp = rouletteCurrentPowerUp
+        else
+            gPlayerSyncTable[0].powerUp = nil
+        end
         stop_power_up_roulette(false)
     end
 end
@@ -247,6 +289,10 @@ local function on_power_up_update()
         return
     end
 
+    if gPlayerSyncTable[0].powerUp ~= nil and not is_power_up_enabled(gPlayerSyncTable[0].powerUp) then
+        gPlayerSyncTable[0].powerUp = nil
+    end
+
     local pressed = m.controller.buttonPressed
     if (pressed & Y_BUTTON) ~= 0 then
         if gPlayerSyncTable[0].powerUp ~= nil then
@@ -268,6 +314,10 @@ function on_cap_collected()
     end
 
     if gPlayerSyncTable[0].powerUp ~= nil then
+        return
+    end
+
+    if #get_available_power_ups_for_local_player() == 0 then
         return
     end
 
@@ -321,6 +371,10 @@ end
 -- All team power-ups
 
 function activate_power_up(powerUp)
+    if not is_power_up_enabled(powerUp) then
+        return
+    end
+
     if powerUp == "blooper" then
         activate_blooper()
     elseif powerUp == "bullet_bill" then

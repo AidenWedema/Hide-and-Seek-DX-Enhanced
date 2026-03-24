@@ -21,6 +21,15 @@ gGlobalSyncTable.roundTimer = 0 -- seconds, 0 = default behavior
 gGlobalSyncTable.compassTimer = 0 -- seconds, 0 = off
 gGlobalSyncTable.compassHeightIndicator = true
 gGlobalSyncTable.showDistanceIndicator = false
+gGlobalSyncTable.powerUpsEnabled = {
+    blooper = true,
+    bullet_bill = true,
+    launch_star = true,
+    boo = true,
+    mini_mushroom = true,
+    freezie = true,
+    mega_mushroom = true,
+}
 
 seekerCount = 0
 hiderCount = 0
