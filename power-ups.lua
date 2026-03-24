@@ -18,8 +18,8 @@ local HIDER_ONLY_POWER_UPS = {
 }
 
 local SEEKER_ONLY_POWER_UPS = {
-    -- "freezie",
-    "mega_mushroom",
+    "freezie",
+    -- "mega_mushroom",
 }
 
 local rouletteActive = false
@@ -33,6 +33,9 @@ local blooperInkTimer = 0
 
 local BOO_DURATION = 10 * 30
 local booVisualApplied = {}
+
+local FREEZIE_DURATION = 2 * 30
+local FREEZIE_MAX_RANGE = 5000
 
 local MEGA_MUSHROOM_DURATION = 1000 * 30
 local MEGA_MUSHROOM_SCALE = 3.0
@@ -325,7 +328,6 @@ end
 function activate_bullet_bill()
 end
 
-
 -- Launch Star
 -- Launches the user high into the air.
 function activate_launch_star()
@@ -340,6 +342,51 @@ function activate_launch_star()
 end
 
 -- Seeker only power-ups
+
+-- freezie
+-- Freezes the nearest seeker for 2 seconds.
+
+function freezie_mario_update(m)
+    if not m then
+        return
+    end
+
+    local playerIndex = m.playerIndex
+    local playerSync = gPlayerSyncTable[playerIndex]
+    local isFreezieActive = playerSync ~= nil and playerSync.freezieTimer ~= nil and playerSync.freezieTimer > 0
+
+    if isFreezieActive then
+        gPlayerSyncTable[playerIndex].freezieTimer = gPlayerSyncTable[playerIndex].freezieTimer - 1
+        m.vel.x = 0
+        m.vel.y = 0
+        m.vel.z = 0
+        m.forwardVel = 0
+    end
+end
+
+function activate_freezie()
+    -- Find nearset player from opposite team
+    local m = gMarioStates[0]
+    if not m then
+        return
+    end
+
+    local target = get_nearest_hider()
+    if not target then
+        return
+    end
+
+    local dx = target.pos.x - m.pos.x
+    local dy = target.pos.y - m.pos.y
+    local dz = target.pos.z - m.pos.z
+    local distance = math.sqrt(dx^2 + dy^2 + dz^2)
+
+    if distance < FREEZIE_MAX_RANGE then
+        if target.playerIndex ~= 0 then
+            gPlayerSyncTable[target.playerIndex].freezieTimer = FREEZIE_DURATION
+        end
+    end
+end
 
 -- Mega Mushroom
 -- Makes the user 3x as big for 10 seconds with scaled speed and jump height.
@@ -493,14 +540,6 @@ end
 
 -- Hider only power-ups
 
--- freezie
--- Freezes the nearest seeker for 2 seconds.
-
-function activate_freezie()
-end
-
--- Hider only power-ups
-
 -- Mini Mushroom
 -- Makes the user 0.5x normal size permanently.
 -- Taking damage while mini means instant death.
@@ -576,9 +615,6 @@ function activate_mini_mushroom()
     set_mini_mushroom_visual_state(gMarioStates[0], true)
 end
 
-
--- Seeker only power-ups
-
 -- Boo
 -- Makes the user transparent for 20 seconds.
 
@@ -620,5 +656,6 @@ hook_event(HOOK_UPDATE, on_power_up_update)
 hook_event(HOOK_ON_PACKET_RECEIVE, on_power_up_packet)
 hook_event(HOOK_ON_HUD_RENDER, render_blooper_overlay)
 hook_event(HOOK_MARIO_UPDATE, boo_mario_update)
+hook_event(HOOK_MARIO_UPDATE, freezie_mario_update)
 hook_event(HOOK_MARIO_UPDATE, mega_mushroom_mario_update)
 hook_event(HOOK_MARIO_UPDATE, mini_mushroom_mario_update)

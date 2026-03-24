@@ -128,11 +128,11 @@ local function normalize_s16_angle(angle)
     return angle
 end
 
-local function is_same_stage(a, b)
+function is_same_stage(a, b)
     return a.currLevelNum == b.currLevelNum and a.currAreaIndex == b.currAreaIndex
 end
 
-local function get_nearest_same_stage_hider_index(localIndex)
+function get_nearest_same_stage_hider_index(localIndex)
     local localPlayer = gNetworkPlayers[localIndex]
     local localMario = gMarioStates[localIndex]
     if not localPlayer or not localMario then
@@ -165,7 +165,7 @@ local function get_nearest_same_stage_hider_index(localIndex)
     return nearestIndex
 end
 
-local function get_nearest_hider()
+function get_nearest_hider()
     if gGlobalSyncTable.gameState ~= 3 then
         return false
     end
