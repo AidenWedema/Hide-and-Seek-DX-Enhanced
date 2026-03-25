@@ -333,13 +333,14 @@ function on_item_collected()
         return
     end
 
-    start_power_up_roulette()
-
-    -- if there's only 1 power-up available, skip the roulette and just give it to the player immediately
     if numPowerUps == 1 then
-        update_power_up_roulette()
-        stop_power_up_roulette(false)
+        -- If only one power-up is available, give it immediately.
+        gPlayerSyncTable[0].powerUp = get_random_power_up(nil)
+        play_sound(SOUND_GENERAL_PAINTING_EJECT, gGlobalSoundSource)
+        return
     end
+
+    start_power_up_roulette()
 end
 
 function get_power_up_texture(powerUp)
