@@ -931,3 +931,12 @@ hook_event(HOOK_MARIO_UPDATE, boo_mario_update)
 hook_event(HOOK_MARIO_UPDATE, freezie_mario_update)
 hook_event(HOOK_MARIO_UPDATE, mega_mushroom_mario_update)
 hook_event(HOOK_MARIO_UPDATE, mini_mushroom_mario_update)
+
+-- Trigger power-up roulette when a star is collected
+local function on_star_collect(m, _, intee)
+    if m.playerIndex == 0 and intee == INTERACT_STAR_OR_KEY then
+        on_item_collected()
+    end
+end
+
+hook_event(HOOK_ON_INTERACT, on_star_collect)
