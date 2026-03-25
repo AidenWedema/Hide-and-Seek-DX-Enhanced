@@ -773,7 +773,14 @@ local function on_hud_render()
 
     render_compass()
     render_distance_indicator()
-    render_item_box()
+
+    -- Do not render the item box if all power-ups are diabled
+    for key, entry in pairs(powerUpMenuEntries) do
+        if entry.key and is_power_up_enabled(entry.key) then
+            render_item_box()
+            break
+        end
+    end
 end
 
 function fancy_text(message, margin, xpos, ypos, size, r, g, b, a, rect, rectR, rectG, rectB)

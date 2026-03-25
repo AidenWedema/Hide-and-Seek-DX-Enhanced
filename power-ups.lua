@@ -215,6 +215,8 @@ local function stop_power_up_roulette(clearPowerUp)
     rouletteCurrentPowerUp = nil
     if clearPowerUp then
         gPlayerSyncTable[0].powerUp = nil
+    else
+        play_sound(SOUND_GENERAL_PAINTING_EJECT, gGlobalSoundSource)
     end
 end
 
@@ -361,7 +363,6 @@ function render_item_box()
     
     if powerUp ~= nil then
         local texture = get_power_up_texture(powerUp)
-        djui_hud_print_text("Power-Up: " .. powerUp, x, y, 1)
         if texture ~= nil then
             djui_hud_render_texture(texture, x, y, 0.5, 0.5)
         end
