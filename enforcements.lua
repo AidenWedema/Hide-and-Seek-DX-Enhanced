@@ -68,7 +68,7 @@ local function mario_update(m)
   if (m.flags & MARIO_VANISH_CAP) ~= 0 then
       m.flags = m.flags & ~MARIO_VANISH_CAP 
       stop_cap_music()
-      on_cap_collected()
+      on_item_collected()
   end
   if (m.flags & MARIO_METAL_CAP) ~= 0 then
       local playerSync = gPlayerSyncTable[m.playerIndex]
@@ -76,13 +76,13 @@ local function mario_update(m)
       if not megaActive then
         m.flags = m.flags & ~MARIO_METAL_CAP
         stop_cap_music()
-        on_cap_collected()
+        on_item_collected()
       end
   end
   if (m.flags & MARIO_WING_CAP) ~= 0 then
       m.flags = m.flags & ~MARIO_WING_CAP
       stop_cap_music()
-      on_cap_collected()
+      on_item_collected()
   end
 
   -- Stop BLJ

@@ -31,6 +31,7 @@ function remove_timestop()
             m.invincTimer = 600 -- 20 seconds is long enough I think
             --obj_become_tangible(grand)
           end
+          on_item_collected()
         end
         c.cutscene = 0
         play_cutscene(c)

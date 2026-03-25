@@ -304,9 +304,9 @@ local function on_power_up_update()
     end
 end
 
--- Called when a player collects a cap.
+-- Called when a player collects a cap or star.
 -- Used to start the power up roulette.
-function on_cap_collected()
+function on_item_collected()
     if gGlobalSyncTable.gameState ~= 3 then
         return
     end
@@ -319,11 +319,18 @@ function on_cap_collected()
         return
     end
 
-    if #get_available_power_ups_for_local_player() == 0 then
+    local numPowerUps = #get_available_power_ups_for_local_player()
+    if numPowerUps == 0 then
         return
     end
 
     start_power_up_roulette()
+
+    -- if there's only 1 power-up available, skip the roulette and just give it to the player immediately
+    if numPowerUps == 1 then
+        update_power_up_roulette()
+        stop_power_up_roulette(false)
+    end
 end
 
 function get_power_up_texture(powerUp)
