@@ -26,6 +26,7 @@ Power-ups replace the wing, metal and vanish cap. The last 2 were already disabl
 #### Hiders only:
 - [Boo](#boo)
 - [Mini mushroom](#mini-mushroom)
+- [Warp pipe](#warp-pipe)
 #### Seekers only:
 - [Mega mushroom](#mega-mushroom)
 - [Freezie](#freezie)
@@ -51,6 +52,11 @@ The mini mushroom makes you shrink to half your size.\
 Due to your smaller size, you are harder to spot. You are also floatier than normal, which slows your fall and prevents taking fall damage.\
 But this power comes at the cost of dying in just a single hit, so be carefull.\
 Only hiders can use this.
+
+### Warp pipe
+The warp pipe warps you to a random stage.\
+This does not count as a 
+Only hiders can use this
 
 ### Mega mushroom
 The mega mushroom makes you grow huge for 12 seconds.\

@@ -5,6 +5,7 @@ TEX_FREEZIE = get_texture_info("powerup_freezie")
 TEX_LAUNCH_STAR = get_texture_info("powerup_launch_star")
 TEX_MEGA_MUSHROOM = get_texture_info("powerup_mega_mushroom")
 TEX_MINI_MUSHROOM = get_texture_info("powerup_mini_mushroom")
+TEX_WARP_PIPE = get_texture_info("powerup_warp_pipe")
 
 local ALL_TEAM_POWER_UPS = {
     "blooper",
@@ -15,6 +16,7 @@ local ALL_TEAM_POWER_UPS = {
 local HIDER_ONLY_POWER_UPS = {
     "boo",
     "mini_mushroom",
+    "warp_pipe",
 }
 
 local SEEKER_ONLY_POWER_UPS = {
@@ -136,6 +138,7 @@ local function ensure_power_up_toggle_table()
         mini_mushroom = true,
         freezie = true,
         mega_mushroom = true,
+        warp_pipe = true,
     }
 
     for key, value in pairs(defaults) do
@@ -147,6 +150,12 @@ end
 
 local function is_power_up_enabled(powerUp)
     ensure_power_up_toggle_table()
+
+    -- Warp pipe can only be used in full-game mode.
+    if powerUp == "warp_pipe" and gGlobalSyncTable.forceLevel then
+        return false
+    end
+
     return gGlobalSyncTable.powerUpsEnabled[powerUp] ~= false
 end
 
@@ -348,6 +357,8 @@ function get_power_up_texture(powerUp)
         return TEX_MEGA_MUSHROOM
     elseif powerUp == "mini_mushroom" then
         return TEX_MINI_MUSHROOM
+    elseif powerUp == "warp_pipe" then
+        return TEX_WARP_PIPE
     else
         return nil
     end
@@ -397,6 +408,8 @@ function activate_power_up(powerUp)
         activate_mega_mushroom()
     elseif powerUp == "mini_mushroom" then
         activate_mini_mushroom()
+    elseif powerUp == "warp_pipe" then
+        activate_warp_pipe()
     end
 end
 
@@ -611,6 +624,23 @@ function activate_launch_star()
     set_mario_action(m, ACT_TRIPLE_JUMP, 0)
     m.vel.y = LAUNCH_STAR_VELOCITY
     launchStarNoFallDamage = true
+end
+
+-- Warp Pipe
+-- Warps the user to a random location on a random level.
+local function get_random_warp_location()
+    local index = math.random(1, #levels)
+    return levels[index][1], levels[index][2], levels[index][3]
+end
+
+function activate_warp_pipe()
+    local m = gMarioStates[0]
+    if not m then
+        return
+    end
+
+    level, area, act = get_random_warp_location()
+    warp_to_level(level, area, act)
 end
 
 -- Seeker only power-ups

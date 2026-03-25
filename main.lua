@@ -29,6 +29,7 @@ gGlobalSyncTable.powerUpsEnabled = {
     mini_mushroom = true,
     freezie = true,
     mega_mushroom = true,
+    warp_pipe = true,
 }
 
 seekerCount = 0

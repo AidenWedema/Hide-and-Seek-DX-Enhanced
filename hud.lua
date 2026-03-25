@@ -31,6 +31,7 @@ local powerUpMenuEntries = {
     {header = "Hiders Only"},
     {key = "boo", label = "Boo"},
     {key = "mini_mushroom", label = "Mini Mushroom"},
+    {key = "warp_pipe", label = "Warp Pipe"},
     {header = "Seekers Only"},
     {key = "freezie", label = "Freezie"},
     {key = "mega_mushroom", label = "Mega Mushroom"},
@@ -50,6 +51,7 @@ local function ensure_power_up_toggle_table()
         mini_mushroom = true,
         freezie = true,
         mega_mushroom = true,
+        warp_pipe = true,
     }
 
     for key, value in pairs(defaults) do
@@ -61,6 +63,12 @@ end
 
 local function is_power_up_enabled(powerUp)
     ensure_power_up_toggle_table()
+
+    -- Warp pipe can only be used in full-game mode.
+    if powerUp == "warp_pipe" and gGlobalSyncTable.forceLevel then
+        return false
+    end
+
     return gGlobalSyncTable.powerUpsEnabled[powerUp] ~= false
 end
 

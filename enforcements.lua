@@ -64,7 +64,7 @@ local function mario_update(m)
     gMarioStates[0].forwardVel = 0
   end
   
-  -- Disable all cap abilities and call `on_cap_collected`
+  -- Disable all cap abilities and call on_item_collected
   if (m.flags & MARIO_VANISH_CAP) ~= 0 then
       m.flags = m.flags & ~MARIO_VANISH_CAP 
       stop_cap_music()
