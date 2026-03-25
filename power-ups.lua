@@ -29,6 +29,7 @@ local rouletteCurrentPowerUp = nil
 local rouletteFrames = 0
 local rouletteDuration = 0
 local rouletteSwapCooldown = 0
+local warpPipePulledThisRound = false
 
 local BLOOPER_INK_DURATION = 6 * 30
 local blooperInkTimer = 0
@@ -182,6 +183,14 @@ local function get_available_power_ups_for_local_player()
         end
     end
 
+    if warpPipePulledThisRound then
+        for i = #pool, 1, -1 do
+            if pool[i] == "warp_pipe" then
+                table.remove(pool, i)
+            end
+        end
+    end
+
     return pool
 end
 
@@ -251,6 +260,9 @@ local function update_power_up_roulette()
     if rouletteFrames >= rouletteDuration then
         if rouletteCurrentPowerUp ~= nil and is_power_up_enabled(rouletteCurrentPowerUp) then
             gPlayerSyncTable[0].powerUp = rouletteCurrentPowerUp
+            if rouletteCurrentPowerUp == "warp_pipe" then
+                warpPipePulledThisRound = true
+            end
         else
             gPlayerSyncTable[0].powerUp = nil
         end
@@ -263,6 +275,7 @@ local function on_power_up_update()
 
     if gGlobalSyncTable.gameState ~= 3 then
         stop_power_up_roulette(true)
+        warpPipePulledThisRound = false
         blooperInkTimer = 0
         gPlayerSyncTable[0].booTimer = 0
         gPlayerSyncTable[0].megaMushTimer = 0
@@ -335,7 +348,11 @@ function on_item_collected()
 
     if numPowerUps == 1 then
         -- If only one power-up is available, give it immediately.
-        gPlayerSyncTable[0].powerUp = get_random_power_up(nil)
+        local selectedPowerUp = get_random_power_up(nil)
+        gPlayerSyncTable[0].powerUp = selectedPowerUp
+        if selectedPowerUp == "warp_pipe" then
+            warpPipePulledThisRound = true
+        end
         play_sound(SOUND_GENERAL_PAINTING_EJECT, gGlobalSoundSource)
         return
     end

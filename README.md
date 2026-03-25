@@ -54,8 +54,8 @@ But this power comes at the cost of dying in just a single hit, so be carefull.\
 Only hiders can use this.
 
 ### Warp pipe
-The warp pipe warps you to a random stage.\
-This does not count as a 
+The warp pipe warps you to a random stage, but can only be used once per round.\
+This does not count as a stage exit.
 Only hiders can use this
 
 ### Mega mushroom
