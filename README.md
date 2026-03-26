@@ -43,6 +43,11 @@ If the bullet bill does not hit anyone after 20 seconds, it just keeps flying in
 The launch star gives a powerfull boost upwards and prevents you from taking fall damage on the way down.\
 Your horizontal speed is not changed.
 
+### Warp pipe
+The warp pipe warps you to a random stage if you are a hider. If you are a seeker, it warps you to the same stage as a hider is in./
+This does not count as a stage exit.\
+Can only be used once per round.
+
 ### Boo
 The boo makes you less visible for 15 seconds. It also prevents a bullet bill from targeting you.\
 Only hiders can use this.
@@ -52,11 +57,6 @@ The mini mushroom makes you shrink to half your size.\
 Due to your smaller size, you are harder to spot. You are also floatier than normal, which slows your fall and prevents taking fall damage.\
 But this power comes at the cost of dying in just a single hit, so be carefull.\
 Only hiders can use this.
-
-### Warp pipe
-The warp pipe warps you to a random stage, but can only be used once per round.\
-This does not count as a stage exit.
-Only hiders can use this
 
 ### Mega mushroom
 The mega mushroom makes you grow huge for 12 seconds.\

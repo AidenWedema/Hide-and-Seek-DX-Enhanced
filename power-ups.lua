@@ -11,12 +11,12 @@ local ALL_TEAM_POWER_UPS = {
     "blooper",
     "bullet_bill",
     "launch_star",
+    "warp_pipe",
 }
 
 local HIDER_ONLY_POWER_UPS = {
     "boo",
     "mini_mushroom",
-    "warp_pipe",
 }
 
 local SEEKER_ONLY_POWER_UPS = {
@@ -651,13 +651,49 @@ local function get_random_warp_location()
     return levels[index][1], levels[index][2], levels[index][3]
 end
 
+local function get_random_hider_stage_warp_location()
+    local hiderPlayerIndexes = {}
+
+    for i = 0, MAX_PLAYERS - 1 do
+        if
+            gNetworkPlayers[i].connected and
+            gNetworkPlayers[i].currAreaSyncValid and
+            gPlayerSyncTable[i] ~= nil and
+            not gPlayerSyncTable[i].seeker
+        then
+            table.insert(hiderPlayerIndexes, i)
+        end
+    end
+
+    if #hiderPlayerIndexes == 0 then
+        return nil
+    end
+
+    local randomHiderIndex = hiderPlayerIndexes[math.random(1, #hiderPlayerIndexes)]
+    local hiderNetworkPlayer = gNetworkPlayers[randomHiderIndex]
+    return hiderNetworkPlayer.currLevelNum, hiderNetworkPlayer.currAreaIndex, 1
+end
+
 function activate_warp_pipe()
     local m = gMarioStates[0]
     if not m then
         return
     end
 
-    level, area, act = get_random_warp_location()
+    local level = nil
+    local area = nil
+    local act = nil
+
+    if gPlayerSyncTable[0].seeker then
+        level, area, act = get_random_hider_stage_warp_location()
+    else
+        level, area, act = get_random_warp_location()
+    end
+
+    if level == nil or area == nil or act == nil then
+        return
+    end
+
     warp_to_level(level, area, act)
 end
 
@@ -890,6 +926,9 @@ local function mini_mushroom_mario_update(m)
     local playerSync = gPlayerSyncTable[playerIndex]
     local isMiniActive = playerSync ~= nil and playerSync.miniMushroomActive
 
+    -- Check if player is in water
+    local isInWater = (m.action >= ACT_WATER_IDLE and m.action <= ACT_WATER_PLUNGE)
+
     -- Mini effect should not persist through death.
     if isMiniActive and m.health <= 0xFF then
         playerSync.miniMushroomActive = false
@@ -909,9 +948,9 @@ local function mini_mushroom_mario_update(m)
         -- Prevent fall damage
         m.peakHeight = m.pos.y
 
-        -- Instant death when taking any damage while mini.
+        -- Instant death when taking any damage while mini (but not from water).
         local lastHealth = miniMushroomLastHealth[playerIndex]
-        if lastHealth ~= nil and m.health < lastHealth then
+        if not isInWater and lastHealth ~= nil and m.health < lastHealth then
             m.health = 0xFF
             playerSync.miniMushroomActive = false
             set_mini_mushroom_visual_state(m, false)
